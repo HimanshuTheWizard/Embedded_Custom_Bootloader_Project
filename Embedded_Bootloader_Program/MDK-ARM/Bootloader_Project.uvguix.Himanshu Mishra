@@ -70,7 +70,7 @@
       <WinId>466</WinId>
       <ViewName>Source Browser</ViewName>
       <UserString>500</UserString>
-      <TableColWidths>166</TableColWidths>
+      <TableColWidths>300</TableColWidths>
     </View>
   </TreeListPane>
 
@@ -3614,7 +3614,7 @@
         <PaneID>0</PaneID>
       </Doc>
       <Doc>
-        <Name>..\Core\Inc\main.h</Name>
+        <Name>C:\Drive_D\GitHub\Embedded_Customer_Bootloader_Project\Embedded_Bootloader_Program\Core\Inc\main.h</Name>
         <ColumnNumber>46</ColumnNumber>
         <TopLine>20</TopLine>
         <CurrentLine>34</CurrentLine>
@@ -3623,7 +3623,7 @@
         <PaneID>0</PaneID>
       </Doc>
       <Doc>
-        <Name>..\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal_gpio.h</Name>
+        <Name>C:\Drive_D\GitHub\Embedded_Customer_Bootloader_Project\Embedded_Bootloader_Program\Drivers\STM32F4xx_HAL_Driver\Inc\stm32f4xx_hal_gpio.h</Name>
         <ColumnNumber>14</ColumnNumber>
         <TopLine>66</TopLine>
         <CurrentLine>70</CurrentLine>
