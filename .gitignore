@@ -1,11 +1,5 @@
 *.o
 *.elf
 *.map
-Embedded_Bootloader_Program/MDK-ARM/Bootloader_Project.uvoptx
-Embedded_Bootloader_Program/MDK-ARM/Bootloader_Project
-Embedded_Bootloader_Program/MDK-ARM/Bootloader_Project.uvguix.Himanshu Mishra
-Embedded_User_Application_Program/Bootloader_user_application/MDK-ARM/Bootloader_user_application.uvoptx
-Embedded_User_Application_Program/Bootloader_user_application/MDK-ARM/Bootloader_user_application
-Embedded_User_Application_Program/Bootloader_user_application/MDK-ARM/Bootloader_user_application.uvguix.Himanshu Mishra
-Embedded_User_Application_Program/Bootloader_user_application/MDK-ARM/Bootloader_user_application.uvprojx
+
 

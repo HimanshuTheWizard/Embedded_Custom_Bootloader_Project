@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "string.h"
 #include "stm32f4xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -36,7 +37,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+#define MAX_COMMAND_LEN 100
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -47,6 +48,7 @@ UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 const char *user_str = "Hello Terminal\n";
+uint8_t Command_Rcv_Buffer[MAX_COMMAND_LEN];
 
 /* USER CODE END PV */
 
@@ -396,13 +398,95 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void bootloader_send_ack(uint8_t len)
+{
+	uint8_t ack_data_buffer[2];
+	ack_data_buffer[0] = BOOTLOADER_ACK;
+	ack_data_buffer[1] = len;
+	HAL_UART_Transmit(&huart2, ack_data_buffer, 2, HAL_MAX_DELAY);
+}
+
+void bootloader_send_nack(void)
+{
+	uint8_t nack_data_buffer = BOOTLOADER_NACK;
+	HAL_UART_Transmit(&huart2, &nack_data_buffer, 1, HAL_MAX_DELAY);
+}
+
+uint8_t Verify_CRC(uint8_t *received_data, uint8_t len, uint32_t target_CRC)
+{
+	uint32_t accumulated_crc = 0xFF;
+	uint32_t i_data;
+	for(int i=0; i< len; i++)
+	{	
+		i_data = received_data[i];
+		accumulated_crc = HAL_CRC_Accumulate(&hcrc, &i_data, 1);
+	}
+	if(accumulated_crc == target_CRC)
+	{
+		return VERIFY_CRC_SUCCESS;
+	}
+	else
+	{
+		return VERIFY_CRC_FAIL;
+	}
+}
+
+uint8_t get_bootloader_version(void)
+{
+	return BOOTLOADER_VERSION;
+}
+
+void Bootloader_handle_get_version_cmd(uint8_t *received_data)
+{
+	uint8_t ret_val;
+	uint8_t bootloader_ver;
+	ret_val = Verify_CRC(&received_data[0], received_data[0]+1, 0);
+	if(VERIFY_CRC_SUCCESS == ret_val)
+	{
+		//send ack
+		bootloader_send_ack(1);
+		//get bootloader version
+		bootloader_ver = get_bootloader_version();
+		//bootloader uart write data
+		HAL_UART_Transmit(&huart2, &bootloader_ver, 1, HAL_MAX_DELAY);
+	}
+	else
+	{
+		//send nack
+		bootloader_send_nack();
+	}	
+}
+void Bootloader_handle_get_cid_cmd(uint8_t *received_data)
+{
+	
+}
+
+
 void bootloader_uart_read_data(void)
 {
-	HAL_GPIO_TogglePin(LD4_GPIO_Port, LD4_Pin);
+	uint8_t cmd_len;
+	while(1)
+	{
+		memset(Command_Rcv_Buffer, 0, 100);
+		HAL_UART_Receive(&huart2, &Command_Rcv_Buffer[0], 1, HAL_MAX_DELAY);
+		cmd_len = Command_Rcv_Buffer[0];
+		HAL_UART_Receive(&huart2, &Command_Rcv_Buffer[1], cmd_len, HAL_MAX_DELAY);
+		switch(Command_Rcv_Buffer[1])
+		{
+			case BL_GET_VER:
+				Bootloader_handle_get_version_cmd(Command_Rcv_Buffer);
+				break;
+			case BL_GET_CID:
+				Bootloader_handle_get_cid_cmd(Command_Rcv_Buffer);
+				break;
+			default:
+				break;
+		}
+	}
 }
+
 void bootloader_jump_to_usr_application(void)
 {
-	//HAL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
 	//Declaration of function pointer
 	void (*app_reset_handler)(void);
 	

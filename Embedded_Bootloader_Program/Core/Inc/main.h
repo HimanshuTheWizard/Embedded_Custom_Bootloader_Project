@@ -32,6 +32,15 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #define FLASH_SECTOR2_BASE_ADDRESS (0x08008000)
+#define BL_GET_VER 									0x51
+#define BL_GET_CID									0x53
+#define VERIFY_CRC_SUCCESS					0x0u
+#define VERIFY_CRC_FAIL							0x1u
+
+#define BOOTLOADER_ACK							0xA5
+#define BOOTLOADER_NACK							0x7F
+
+#define BOOTLOADER_VERSION					0x01
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -127,6 +136,11 @@ void bootloader_jump_to_usr_application(void);
 #define MEMS_INT2_GPIO_Port GPIOE
 
 /* USER CODE BEGIN Private defines */
+void Bootloader_handle_get_version_cmd(uint8_t *received_data);
+void Bootloader_handle_get_cid_cmd(uint8_t *received_data);
+void bootloader_send_ack(uint8_t len);
+void bootloader_send_nack(void);
+uint8_t get_bootloader_version(void);
 
 /* USER CODE END Private defines */
 
