@@ -32,8 +32,20 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #define FLASH_SECTOR2_BASE_ADDRESS (0x08008000)
+
 #define BL_GET_VER 									0x51
 #define BL_GET_CID									0x53
+#define BL_GET_HELP									0x52
+#define BL_GET_RDP_STATUS						0x54
+#define BL_GO_TO_ADDR								0x55
+#define BL_FLASH_ERASE							0x56
+#define BL_MEM_WRITE								0x57
+#define BL_ENABLE_R_W_PROTECT				0x58
+#define BL_MEM_READ									0x59
+#define BL_READ_SECTOR_STATUS				0x5A
+#define BL_OTP_READ									0x5B
+#define BL_DIS_R_W_PROTECT					0x5C
+
 #define VERIFY_CRC_SUCCESS					0x0u
 #define VERIFY_CRC_FAIL							0x1u
 
@@ -41,6 +53,17 @@ extern "C" {
 #define BOOTLOADER_NACK							0x7F
 
 #define BOOTLOADER_VERSION					0x01
+
+#define VALID_ADDRESS								0x00
+#define INVALID_ADDRESS							0x01
+
+#define BOOTLOADER_VERSION_RESPONSE_LEN				1
+#define BOOTLOADER_CID_RESPONSE_LEN						2	
+#define BOOTLOADER_RDP_RESPONSE_LEN						1
+#define BOOTLOADER_GOTO_ADDR_RESPONSE_LEN			1
+#define BOOTLOADER_MEM_ERASE_RESPONSE_LEN			1
+
+
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -138,10 +161,22 @@ void bootloader_jump_to_usr_application(void);
 /* USER CODE BEGIN Private defines */
 void Bootloader_handle_get_version_cmd(uint8_t *received_data);
 void Bootloader_handle_get_cid_cmd(uint8_t *received_data);
+void Bootloader_get_help_cmd(uint8_t *received_data);
+void Bootloader_get_rdp_status_cmd(uint8_t *received_data);
+void Bootloader_goto_addr_cmd(uint8_t *received_data);
+void Bootloader_erase_flash_cmd(uint8_t *received_data);
+void Bootloader_mem_write_cmd(uint8_t *received_data);
+void Bootloader_enable_rw_protect_cmd(uint8_t *received_data);
+void Bootloader_mem_read_cmd(uint8_t *received_data);
+void Bootloader_read_sector_status_cmd(uint8_t *received_data);
+void Bootloader_otp_read_cmd(uint8_t *received_data);
+void Bootloader_diable_rw_protect_cmd(uint8_t *received_data);
+
 void bootloader_send_ack(uint8_t len);
 void bootloader_send_nack(void);
 uint8_t get_bootloader_version(void);
-
+uint16_t get_chip_id(void);
+uint8_t check_address_validity(uint32_t *goto_address);
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

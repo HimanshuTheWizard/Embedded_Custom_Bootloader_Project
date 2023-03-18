@@ -47,7 +47,6 @@ UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-const char *user_str = "Hello Terminal\n";
 uint8_t Command_Rcv_Buffer[MAX_COMMAND_LEN];
 
 /* USER CODE END PV */
@@ -398,6 +397,9 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/*
+Description : used to send ack to host
+*/
 void bootloader_send_ack(uint8_t len)
 {
 	uint8_t ack_data_buffer[2];
@@ -406,12 +408,18 @@ void bootloader_send_ack(uint8_t len)
 	HAL_UART_Transmit(&huart2, ack_data_buffer, 2, HAL_MAX_DELAY);
 }
 
+/*
+Description : send nack
+*/
 void bootloader_send_nack(void)
 {
 	uint8_t nack_data_buffer = BOOTLOADER_NACK;
 	HAL_UART_Transmit(&huart2, &nack_data_buffer, 1, HAL_MAX_DELAY);
 }
 
+/*
+Description : Verify CRC
+*/
 uint8_t Verify_CRC(uint8_t *received_data, uint8_t len, uint32_t target_CRC)
 {
 	uint32_t accumulated_crc = 0xFF;
@@ -431,24 +439,31 @@ uint8_t Verify_CRC(uint8_t *received_data, uint8_t len, uint32_t target_CRC)
 	}
 }
 
+/*
+Description : get boot loader version
+*/
 uint8_t get_bootloader_version(void)
 {
 	return BOOTLOADER_VERSION;
 }
 
+/*
+Description : get bootloader version cmd handler
+*/
 void Bootloader_handle_get_version_cmd(uint8_t *received_data)
 {
-	uint8_t ret_val;
 	uint8_t bootloader_ver;
-	ret_val = Verify_CRC(&received_data[0], received_data[0]+1, 0);
-	if(VERIFY_CRC_SUCCESS == ret_val)
+	uint8_t cmd_len = received_data[0]+1;
+	uint32_t host_crc = *((uint32_t * ) (received_data+cmd_len - 4) ) ;
+
+	if(VERIFY_CRC_SUCCESS == Verify_CRC(&received_data[0], cmd_len-4, host_crc))
 	{
 		//send ack
-		bootloader_send_ack(1);
+		bootloader_send_ack(BOOTLOADER_VERSION_RESPONSE_LEN);
 		//get bootloader version
 		bootloader_ver = get_bootloader_version();
 		//bootloader uart write data
-		HAL_UART_Transmit(&huart2, &bootloader_ver, 1, HAL_MAX_DELAY);
+		HAL_UART_Transmit(&huart2, &bootloader_ver, BOOTLOADER_VERSION_RESPONSE_LEN, HAL_MAX_DELAY);
 	}
 	else
 	{
@@ -456,28 +471,301 @@ void Bootloader_handle_get_version_cmd(uint8_t *received_data)
 		bootloader_send_nack();
 	}	
 }
+
+/*
+Description : get boot loader commands
+*/
+void Bootloader_get_help_cmd(uint8_t *received_data)
+{
+	uint8_t supported_cmd_arr[] = {
+																	BL_GET_VER,
+																	BL_GET_CID,
+																	BL_GET_HELP,
+																	BL_GET_RDP_STATUS,
+																	BL_GO_TO_ADDR,
+																	BL_FLASH_ERASE,
+																	BL_MEM_WRITE,
+																	BL_ENABLE_R_W_PROTECT,
+																	BL_MEM_READ,
+																	BL_READ_SECTOR_STATUS,
+																	BL_OTP_READ,
+																	BL_DIS_R_W_PROTECT
+																};
+	uint8_t cmd_len = received_data[0]+1;
+	uint32_t host_crc = *((uint32_t * ) (received_data+cmd_len - 4) ) ;
+	
+	if(VERIFY_CRC_SUCCESS == Verify_CRC(received_data, cmd_len - 4, host_crc))
+	{
+		bootloader_send_ack(sizeof(supported_cmd_arr));
+		HAL_UART_Transmit(&huart2, supported_cmd_arr, sizeof(supported_cmd_arr), HAL_MAX_DELAY);
+	}
+	else
+	{
+		bootloader_send_nack();
+	}
+}
+/*
+Description : get bootloader CID
+*/
+uint16_t get_chip_id(void)
+{
+	uint16_t Chip_ID = (DBGMCU->IDCODE)&0x0FFF;;
+	return Chip_ID;
+}
+
+/*
+Description : get bootloader CID command handler
+*/
 void Bootloader_handle_get_cid_cmd(uint8_t *received_data)
+{
+	uint16_t Chip_ID;
+	uint8_t cmd_len = received_data[0]+1;
+	uint32_t host_crc = *((uint32_t * ) (received_data+cmd_len - 4) ) ;
+	//get chip ID
+	Chip_ID = get_chip_id();
+	//check CRC
+	if(VERIFY_CRC_SUCCESS == Verify_CRC(received_data, cmd_len-4, host_crc))
+	{
+		bootloader_send_ack(BOOTLOADER_CID_RESPONSE_LEN);
+		HAL_UART_Transmit(&huart2, (uint8_t *)&Chip_ID, BOOTLOADER_CID_RESPONSE_LEN, HAL_MAX_DELAY);
+	}
+	else
+	{
+		bootloader_send_nack();
+	}
+}
+/*
+
+Description : Get boot loader RDP status
+*/
+uint8_t get_rdp_status(void)
+{
+	return ((FLASH->OPTCR)&0xFF00);
+}
+/*
+Description : Get boot loader RDP status command handler
+*/
+void Bootloader_get_rdp_status_cmd(uint8_t *received_data)
+{
+	uint8_t rdp_status;
+	uint8_t cmd_len = received_data[0]+1;
+	uint32_t host_crc = *((uint32_t * ) (received_data+cmd_len - 4) ) ;
+	//get read protection level
+	rdp_status = get_rdp_status();
+	//check CRC
+	if(VERIFY_CRC_SUCCESS == Verify_CRC(received_data, cmd_len-4, host_crc))
+	{
+		bootloader_send_ack(BOOTLOADER_RDP_RESPONSE_LEN);
+		HAL_UART_Transmit(&huart2, &rdp_status, BOOTLOADER_RDP_RESPONSE_LEN, HAL_MAX_DELAY);
+	}
+	else
+	{
+		bootloader_send_nack();
+	}
+}
+
+/*
+Description : redirect bootloader to an address
+*/
+void Bootloader_goto_addr_cmd(uint8_t *received_data)
+{
+	uint32_t *goto_address;
+	uint8_t addr_validity_ack;
+	uint8_t cmd_len = received_data[0]+1;
+	uint32_t host_crc = *((uint32_t * ) (received_data+cmd_len - 4) ) ;
+	
+	//check CRC
+	if(VERIFY_CRC_SUCCESS == Verify_CRC(received_data, cmd_len-4, host_crc))
+	{
+		bootloader_send_ack(BOOTLOADER_GOTO_ADDR_RESPONSE_LEN);
+		//extract go-to address
+		goto_address = (uint32_t *)&received_data[2];
+		goto_address+=1;
+		//check address validity
+		addr_validity_ack = check_address_validity(goto_address);
+		HAL_UART_Transmit(&huart2, &addr_validity_ack, BOOTLOADER_GOTO_ADDR_RESPONSE_LEN, HAL_MAX_DELAY);
+		if(addr_validity_ack == VALID_ADDRESS)
+		{
+			void (*jump_add)(void) = (void *)goto_address;
+			jump_add();
+		}
+	}
+	else
+	{
+		bootloader_send_nack();
+	}
+}
+/*
+Description : To be fully implemented
+*/
+uint8_t check_address_validity(uint32_t *goto_address)
+{
+	return 0;
+}
+/*
+Description : erase flash cmd handler
+*/
+void Bootloader_erase_flash_cmd(uint8_t *received_data)
+{
+	uint8_t sector_number;
+	uint8_t number_of_sectors;
+	uint8_t cmd_len = received_data[0]+1;
+	uint32_t sector_error;
+	HAL_StatusTypeDef ret_val;
+	FLASH_EraseInitTypeDef flash_erase = {
+																					FLASH_TYPEERASE_SECTORS,
+																					sector_number,
+																					FLASH_SECTOR_0,
+																					number_of_sectors,
+																					FLASH_VOLTAGE_RANGE_3
+																				};
+	uint32_t host_crc = *((uint32_t * ) (received_data+cmd_len - 4) ) ;
+	//get sector number and number of sectors
+	sector_number = received_data[2];
+	number_of_sectors = received_data[3];
+	//check CRC
+	if(VERIFY_CRC_SUCCESS == Verify_CRC(received_data, cmd_len-4, host_crc))
+	{
+		bootloader_send_ack(BOOTLOADER_MEM_ERASE_RESPONSE_LEN);
+		ret_val = HAL_FLASHEx_Erase(&flash_erase, &sector_error);
+		HAL_UART_Transmit(&huart2, &ret_val, BOOTLOADER_MEM_ERASE_RESPONSE_LEN, HAL_MAX_DELAY);
+	}
+	else
+	{
+		bootloader_send_nack();
+	}
+}
+
+/*
+Description : memory write cmd handler
+*/
+void Bootloader_mem_write_cmd(uint8_t *received_data)
+{
+	uint8_t cmd_len = received_data[0]+1;
+	uint32_t base_memory_add =  *(uint32_t *)&received_data[2];
+	uint8_t *payload = &received_data[7];
+	uint8_t payload_len = received_data[6];
+	
+	HAL_StatusTypeDef ret_val;
+	uint32_t host_crc = *((uint32_t * ) (received_data+cmd_len - 4) ) ;
+	//check CRC
+	if(VERIFY_CRC_SUCCESS == Verify_CRC(received_data, cmd_len-4, host_crc))
+	{
+		bootloader_send_ack(1);
+		if(check_address_validity((uint32_t *)base_memory_add))
+		{
+			HAL_FLASH_Unlock();
+			for(int i=0; i<payload_len; i++)
+			{
+				ret_val = HAL_FLASH_Program(FLASH_TYPEPROGRAM_BYTE, (uint32_t)base_memory_add+i, payload[i]);
+			}
+			HAL_FLASH_Lock();
+		}
+		HAL_UART_Transmit(&huart2, &ret_val, 1, HAL_MAX_DELAY);
+	}
+	else
+	{
+		bootloader_send_nack();
+	}
+}
+
+/*
+Description : read write protect command handler 
+*/
+void Bootloader_enable_rw_protect_cmd(uint8_t *received_data)
 {
 	
 }
 
+/*
+Description : memory read cmd handler
+*/
+void Bootloader_mem_read_cmd(uint8_t *received_data)
+{
 
+}
+
+/*
+Description : command handler for reading the protection level of sectors
+*/
+void Bootloader_read_sector_status_cmd(uint8_t *received_data)
+{
+
+}
+
+/*
+Description : otp read cmd handler
+*/
+void Bootloader_otp_read_cmd(uint8_t *received_data)
+{
+
+}
+
+/*
+Description : disables the protection level for sectors
+*/
+void Bootloader_diable_rw_protect_cmd(uint8_t *received_data)
+{
+		
+}
+
+/*
+Description : When bootloader mode is enabled, user jump to this function
+							and all the bootloader commands are handled in this function
+*/
 void bootloader_uart_read_data(void)
 {
 	uint8_t cmd_len;
 	while(1)
 	{
 		memset(Command_Rcv_Buffer, 0, 100);
+		//Reading cmd length
 		HAL_UART_Receive(&huart2, &Command_Rcv_Buffer[0], 1, HAL_MAX_DELAY);
 		cmd_len = Command_Rcv_Buffer[0];
+		//Reading remaining command
 		HAL_UART_Receive(&huart2, &Command_Rcv_Buffer[1], cmd_len, HAL_MAX_DELAY);
 		switch(Command_Rcv_Buffer[1])
 		{
 			case BL_GET_VER:
 				Bootloader_handle_get_version_cmd(Command_Rcv_Buffer);
 				break;
+			case BL_GET_HELP:
+				Bootloader_get_help_cmd(Command_Rcv_Buffer);
+				break;
 			case BL_GET_CID:
 				Bootloader_handle_get_cid_cmd(Command_Rcv_Buffer);
+				break;
+			case BL_GET_RDP_STATUS:
+				Bootloader_get_rdp_status_cmd(Command_Rcv_Buffer);
+				break;
+			case BL_GO_TO_ADDR:
+				Bootloader_goto_addr_cmd(Command_Rcv_Buffer);
+				break;
+			case BL_FLASH_ERASE:
+				Bootloader_erase_flash_cmd(Command_Rcv_Buffer);
+				break;
+			case BL_MEM_WRITE:
+				Bootloader_mem_write_cmd(Command_Rcv_Buffer);
+				break;
+			/*To be implemented*/
+			case BL_ENABLE_R_W_PROTECT:
+				Bootloader_enable_rw_protect_cmd(Command_Rcv_Buffer);
+				break;
+			/*To be implemented*/
+			case BL_MEM_READ:
+				Bootloader_mem_read_cmd(Command_Rcv_Buffer);
+				break;
+			/*To be implemented*/
+			case BL_READ_SECTOR_STATUS:
+				Bootloader_read_sector_status_cmd(Command_Rcv_Buffer);
+				break;
+			/*To be implemented*/
+			case BL_OTP_READ:
+				Bootloader_otp_read_cmd(Command_Rcv_Buffer);
+				break;
+			/*To be implemented*/
+			case BL_DIS_R_W_PROTECT:
+				Bootloader_diable_rw_protect_cmd(Command_Rcv_Buffer);
 				break;
 			default:
 				break;
@@ -485,6 +773,9 @@ void bootloader_uart_read_data(void)
 	}
 }
 
+/*
+Description : When bootloader mode is not enabled execution jump to this function
+*/
 void bootloader_jump_to_usr_application(void)
 {
 	//Declaration of function pointer
